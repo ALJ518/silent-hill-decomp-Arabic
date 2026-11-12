@@ -1,250 +1,104 @@
-# Silent Hill - Native PC Port
-## Latest release is [here](https://github.com/SlickAmogus/silent-hill-decomp/releases/tag/realtime) for singleplayer, or [here](https://github.com/SlickAmogus/silenthill-online/releases/tag/realtime) for online coop/living world
-  **A native PC port built on the Silent Hill PSX decompilation.** What started as an experiment has become a fully playable port with a large feature set, built-in mod support, an active community, and fan translation/multilingual support. It uses PsyCross (a PsyQ SDK compatibility layer originally written for REDRIVER2) as its hardware abstraction layer, which we [now maintain our own fork of](https://github.com/SlickAmogus/PsyCross).  Care has been taken to leave the original game code intact wherever possible and to work around it where needed, so game logic and feel still match the PSX original. Most if not all enhancements are optional, and always will be.
+# Silent Hill - Native PC Port (إصلاح دعم التعريب العربي)
 
-  The game runs as a real Windows/Linux executable compiled from decompiled C source. It is **not an emulator** and **not a static recompilation**: no part of the original binary is translated by a tool.  **NOTE: Linux and Mac support are a WIP. On Linux, it is recommended to use wine for the time being.**
+> **⚠️ تنبيه قانوني وإخلاء مسؤولية (مهم جداً):**
+> * هذا المستودع عبارة عن **تعديل برمجي (Fork) لبورت الحاسب فقط** لكي يتوافق ويعرض النصوص العربية بشكل سليم.
+> * **لا يحتوي هذا المشروع أو ملفات التحميل (Releases) على أي ملفات خاصة باللعبة الأصلية (ROM/BIN) ولا يحتوي على ملفات التعريب الجاهزة.**
+> * لتشغيل اللعبة باللغة العربية، يجب عليك توفير نسخة القرص الخاصة بك ودمجها مع **تعريب فريق الحلم المتجدد (تعريب منصور ETRD)** بشكل منفصل، ثم وضع ملف القرص المعرّب داخل مجلد `gamedata`.
 
-  **Development is heavily AI-assisted** (Claude Opus 4.6, 4.7 and the newer Fable model), and we're open about that. It is not automated translation of the game. Every change is a reviewed, hand-directed edit to real source, tested against the original behaviour.
+---
 
-  Project Website: https://sh1pc.com/ <br/>
-  Discord: https://discord.gg/JWuNzVsQbr
+## 🛠️ ما الجديد في هذا التعديل (إصلاحات التعريب واللانشر)؟
 
-  Play on the web: https://sh1pc.com/play/
+تم فحص المشروع بالكامل (بمساعدة الذكاء الاصطناعي وتوجيه يدوي دقيق) لإصلاح كافة مشاكل عرض اللغة العربية والتوافق مع نسخة تعريب الحلم المتجدد (`Silent Hill (USA).bin` - تعريب منصور ETRD)، بالإضافة إلى حل مشكلة حفظ الإعدادات في اللانشر:
 
-  <img width="3440" height="1440" alt="build Screenshot 2026 10 26 - 22 38 03 43" src="https://github.com/user-attachments/assets/92876446-9a5a-4069-8cd2-5071149b7fe5" />
-21:9 3440x1440 resolution, per-pixel character lighting, Anti-aliasing, Anisotropic filtering + dithering
+### 1. إصلاح الترميز والنصوص الناقصة وخطوط `FONT16` / `FONT8NOC`
+* **إضافة النصوص الناقصة (`lang_ar_menu.inc`):** تعريب النصوص غير الموجودة على القرص الأصلي أو التي تحتاج بديلاً مباشراً، مثل: `"EXIT"` ➔ `"خروج"`، `"Chinese"` ➔ `"الصينية"`، `"Japanese"` ➔ `"اليابانية"`، `"OPTION"` ➔ `"الخيارات"`، ورسائل القتال وكرت الذاكرة.
+* **قائمة الخيارات السريعة والغش (`lang_quick_ar.inc`، `pc_quick_options.c`، `pc_cheats.c`):** إضافة ترجمات الخيارات الناقصة (`كامل`، `الأصلي (عند التصويب أيضًا)`، خيارات الدقة والجودة، وتمرير خيارات الأسلحة السريعة وأسماء الشخصيات القابلة للعب).
+* **تشكيل الحروف والأقواس (`lang_ar_shape.c`):** تخطي علامات التشكيل في دالة `Pc_ArEncode` لمنع تقطّع اتصال الحروف العربية، ودعم أقواس التحديد `[ / ]` و`« / »` على خلايا الخط `FONT16.TIM`.
+* **حساب عرض النصوص (`text_draw.c`):** تقييد تحويل الرموز الخاصة في `Gfx_MapMsg_CalculateWidths` بشرط عدم تفعيل الاتجاه العربي (`!Pc_ArRtl()`) لضمان تطابق عرض السطور وعدم تداخلها.
+* **فصل جداول الخطوط (`lang_ar.h`، `lang_ar.c`، `text_debug_draw.c`):**
+  * الفصل الدقيق بين جدول `FONT16` وجدول `FONT8NOC` لمنع تضارب المفاتيح (مثل كلمة `OPTION`).
+  * تحديث عرض عناوين أوامر التحكم الـ 14 بالعربية دون تشويهها، وتمرير النصوص اللاتينية غير الرقمية الموجودة في قرص التعريب (مثل أسماء أزرار التحكم في شاشة الإعدادات أو عبارات `"hyper blaster"` و`"power up"` في شاشة الحفظ) إلى خط النظام `Pc_TtfText_Queue` بدلاً من ظهور رموز عشوائية.
 
-## Latest Features
+### 2. إصلاح محاذاة اليمين إلى اليسار (RTL) في القوائم المضافة
+* **قائمة الإيقاف المؤقت (`pc_pause_menu.c`):** عكس قوسي التحديد `«` و `»` عند تفعيل اللغة العربية ليظهر التحديد بشكل متطابق مع شاشة البداية.
+* **شريط النصوص المتحركة (`pc_native_menu_draw.c`):** إصلاح دالة `Nm_TextDrawMarquee` لتبدأ الرسم والتمرير الأفقي من اليمين إلى اليسار للأسطر الطويلة دون انقلاب الحروف.
+* **شاشة الإنجازات (`pc_ach_screen.c`):** إصلاح ترتيب عرض تاريخ فتح الإنجاز، والنقاط والأقواس لتظهر بالاتجاه العربي الصحيح.
 
-- **See the whole town.** Turn the fog/visibility slider in the launcher below 1.0 and the outdoor maps render all the way out instead of fading into fog. It needs PGXP, and the launcher offers to turn that on for you.
-- **High-poly character swaps.** Replace Harry or Cybil with a skinned glTF model: full skeletal animation, lip sync driven by the voice lines, blinking, shape keys, optional ragdoll deaths, and per-model tuning in an ini. Extra `HERO_*` models show up as playable characters in Play As.
-- **Realtime updates.** Every change is built automatically for Windows, Linux, macOS, iOS and Android as soon as it lands. Grab the newest build from the [Realtime builds](https://github.com/SlickAmogus/silent-hill-decomp/releases/tag/realtime) page, or, from the next release on, tick **Realtime updates** in the launcher's Build Settings to follow them and roll back to any of the last 30.
-- **Native menus.** A new Controls screen and an in-game Achievements screen, with button prompts that match the controller you are using.
-- **Natural diagonal movement.** In the alternate cameras, Harry's legs now turn to follow the direction he is walking or running.
-- **Quick weapon switching.** Optional, including the mouse wheel.
-- **Play in your browser.** Try it without installing anything at https://sh1pc.com/play/.
+### 3. إصلاح حفظ الإعدادات في اللانشر (`SilentHillPC_Launcher`)
+* **حفظ تلقائي عند الإغلاق (`Form1.cs`):** ربط حدث إغلاق النافذة (`FormClosing`) بحفظ الإعدادات في `config.cfg` حتى لا تضيع تعديلاتك عند إغلاق اللانشر بزر `X` دون الضغط على `Play`.
+* **منع الكتابة فوق الإعدادات الفرعية:** إعادة قراءة ملف `config.cfg` قبل الحفظ لضمان عدم مسح إعدادات الأزرار أو `RetroAchievements` أو إعدادات البناء، وتطبيق نفس آلية الحفظ على نوافذ `RetroAchievementsForm` و`ModManagerForm`.
 
-## Features
+---
 
-**The game is fully playable start to finish.** Every map, boss, cutscene, ending, and system works. You can complete the full game today, and the remaining known bugs are minor. Enhancements are **optional and always will be**: at default-faithful settings the port plays like the original PSX game (same logic, same feel, same look), and everything beyond that is opt-in.
+## 📖 نظرة عامة على المشروع الأصلي (Silent Hill - Native PC Port)
 
-- **Faithful core.** Original decompiled game logic, PSX fixed-camera system 1:1, original movement/combat/AI behaviour; play it exactly like 1999, just natively.
-- **Graphics.** Any resolution, widescreen 16:9/21:9+, high refresh / uncapped FPS, optional rewritten PGXP perspective correction, MSAA, texture filtering, tone mapping and post-process looks (CRT, scanlines, film grain, and more).
-- **Flashlight & lighting.** Four flashlight modes (Classic / Modern, each with optional per-pixel shadow mapping up to 8192x8192).
-- **Cameras.** Classic fixed cameras plus a full alternate suite: third-person, over-the-shoulder with free-aim, and first-person, each with FOV/aim options and its own control scheme, plus a mouse-look free camera for exploring.
-- **Audio.** Optional surround 5.1/7.1 with true 3D positional SFX and reverb; XA cutscene voices streamed straight from the disc image; FMV playback with HD AVI & MP4 override support.
-- **Quality of life.** Mouse-clickable menus, quick save/load, reload key, quick-heal, an in-game **PC Options** menu and an **F10 quick-options overlay** (graphics / HUD / audio / cheats / debug, live while playing), minimap options, low-health screen glow (off by default), uncensored toggle.
-- **Cheats & tools.** In-game console (warps, spawns, god/noclip, live tuning of nearly everything), cheat menu, play as any of 14 characters, spawn any monster in any map (global monster pool), raised enemy cap, collision visualizer, keyframe inspector.
-- **Modding.** Built-in Mod Manager (extract the disc, texture packs, loose-file replacement, DuckStation-style packs), character retextures, full character model replacement (ILM <-> OBJ / Blender), modern glTF inventory item models, VAB audio extraction/repacking, AVI FMV replacement. See [Game Files / Modding](#game-files--modding).
-- **Integrations.** RetroAchievements and Discord Rich Presence.
-- **Experimental.** A Lua-scripted Randomizer mode, and a TrenchBroom-based level-editing pipeline in development.
-- **Languages & regions.** USA, PAL/EUR (English, French, German, Italian, Spanish) and NTSC-J (Japanese) discs all supported and auto-detected; **fan-translation discs work** via the launcher's disc picker; Russian and Polish translation packs; Chinese playable on NTSC-J; the launcher UI itself is localized into 10 languages.
-- **Multiplatform.** The same codebase runs on far more than PC. Windows is the primary target; Linux and macOS builds exist (WIP); and ports are in development for **Xbox 360**, **PS3**, **PSP**, **iOS**, **Android**, and even an **N64 demake** (Expansion Pak required).
+هذا العمل مبني على بورت الحاسب الأصلي المستند إلى التفكيك العكسي (Decompilation) للعبة **Silent Hill** على جهاز PSX. ما بدأ كتجربة تحول إلى بورت قابل للعب بالكامل من البداية للنهاية مع مجموعة ضخمة من المميزات، ودعم مدمج للمودات، ودعم ترجمات المعجبين.
 
-Nightly builds: https://github.com/SlickAmogus/silent-hill-pc-nightly
+* **أداء أصلي وليس محاكاة:** تعمل اللعبة كملف تنفيذي حقيقي لنظام Windows/Linux مترجم من كود لغة C، وليست محاكياً. تم الحفاظ على منطق اللعبة الأصلي وفيزيائيتها ونظام الكاميرا الثابتة كما في نسخة 1999، وجميع التحسينات الرسومية اختيارية بالكامل.
+* **التطوير بمساعدة الذكاء الاصطناعي:** تم تطوير البورت الأصلي (وكذلك تعديلات التعريب هنا) بمساعدة مكثفة من نماذج الذكاء الاصطناعي مع مراجعة وتوجيه يدوي دقيق لكل سطر برمجي واختباره مقابل السلوك الأصلي للعبة.
 
-## Known Issues / Bugs
+### 🔗 روابط المشروع الأصلي والدعم
+* **مستودع البورت الأصلي:** [SlickAmogus/silent-hill-decomp](https://github.com/SlickAmogus/silent-hill-decomp)
+* **الموقع الرسمي للبورت:** https://sh1pc.com/
+* **سيرفر الديسكورد الرسمي للمشروع الأصلي:** https://discord.gg/JWuNzVsQbr
+* **تجربة البورت الأصلي على المتصفح:** https://sh1pc.com/play/
+* **دعم مطور البورت الأصلي (`@KushAstronaut`):** المشروع الأصلي مجاني 100% وممول ذاتياً من قِبل مطوره الأساسي؛ إذا رغبت في دعمه يمكنك التواصل معه عبر الديسكورد أعلاه أو عبر صفحته على Ko-fi المذكورة في المستودع الأصلي.
 
-- Linux and macOS builds still have issues. Windows (or wine) is recommended where possible.
-- Visual glitches or artifacts can appear on certain systems/hardware (try the `renderer=` config option: d3d11 / vulkan / warp).
-- Some minor visual bugs and cosmetic issues remain.
+---
 
-Everything else that's known is tracked on the [issues page](https://github.com/SlickAmogus/silent-hill-decomp/issues).
+## ✨ أبرز مميزات البورت
 
-<!-- Screenshots go here -->
+* **رؤية المدينة بالكامل:** إمكانية تقليل الضباب لرؤية الخرائط الخارجية بالكامل (يتطلب تفعيل PGXP).
+* **تبديل الشخصيات عالية الدقة:** استبدال هاري أو سيبيل بنماذج `glTF` عالية الجودة مع تحريك كامل ومزامنة حركة الشفاه مع الصوت.
+* **قوائم أصلية مدمجة:** شاشة جديدة لإعدادات التحكم وشاشة إنجازات داخل اللعبة تتعرف تلقائياً على نوع يد التحكم المستخدمة.
+* **الرسوميات والإضاءة:** دعم أي دقة شاشة (16:9 / 21:9+)، إطارات غير محدودة (Uncapped FPS)، تصحيح المنظور PGXP، تنعيم الحواف MSAA، فلاتر CRT، و4 أوضاع للكشاف مع ظلال تصل دقتها إلى `8192x8192`.
+* **الكاميرات:** الكاميرا الكلاسيكية الثابتة، بالإضافة إلى منظور الشخص الثالث، ومنظور الكتف مع التصويب الحر، ومنظور الشخص الأول، وكاميرا حرة للاستكشاف.
+* **الصوتيات:** دعم الصوت المحيطي 5.1/7.1، وتشغيل مقاطع الفيديو السينمائية بجودة عالية (AVI / MP4).
+* **تسهيلات اللعب:** الحفظ والتحميل السريع (`F6` / `F8`)، قائمة خيارات سريعة أثناء اللعب (`F10`)، اللعب بـ 14 شخصية مختلفة، وإزالة الرقابة.
+* **مدير المودات المدمج (Mod Manager):** استخراج ملفات القرص، تركيب حزم التكستشر (PNG / DDS / حزم DuckStation)، واستبدال النماذج والأصوات.
+* **التكامل:** دعم إنجازات `RetroAchievements` وحالة `Discord Rich Presence`.
 
-## Short Instructions
+---
 
-- Extract the release anywhere on your PC.
-- Put your game disc image in the `gamedata` folder. Any filename works, since the launcher auto-detects it by region, but `Silent Hill (USA).bin` is a safe default.
-- Run `SilentHillPC_Launcher` to configure, or run `SilentHillPC` to play. The build is unsigned, so Windows SmartScreen may block it the first time; run the game once, then the launcher.
+## 🚀 طريقة التشغيل السريعة
 
-## Controls
+1. قم بتحميل النسخة المعدلة من قسم **Releases** في هذه الصفحة وفك الضغط عنها في أي مجلد على جهازك.
+2. ضع ملف القرص المعرّب بصيغة `.bin` داخل مجلد `gamedata` (يفضل تسميته `Silent Hill (USA).bin`).
+3. شغّل برنامج `SilentHillPC_Launcher.exe` لضبط الإعدادات ثم اضغط **Play** (أو شغّل `SilentHillPC.exe` مباشرة).
+   * *ملاحظة:* بما أن الملفات غير موقعة رقمياً، قد يظهر تحذير من نظام الحماية **Windows SmartScreen** في المرة الأولى؛ اضغط على `More info` ثم `Run anyway`.
 
-Default keyboard bindings (fixed-camera "Classic" scheme):
+---
 
-| PSX Button | Key | In-game |
-|------------|-----|---------|
-| Cross | C | Action / shoot |
-| Circle | V | Flashlight |
-| Triangle | Z | Map |
-| Square | X | Run |
-| L1 / R1 | A / D | Sidestep left / right |
-| L2 / R2 | Right Shift / Left Shift | View / aim |
-| D-Pad | Arrow keys | Move |
-| Start | Enter | Pause |
-| Select | Space | Inventory |
+## 🎮 أزرار التحكم الافتراضية
 
-PC-only keys:
+### لوحة المفاتيح (الوضع الكلاسيكي)
+| زر البلايستيشن | الزر في الكيبورد | الوظيفة |
+| :--- | :--- | :--- |
+| **Cross (X)** | `C` | تفاعل / إطلاق نار |
+| **Circle (O)** | `V` | تشغيل / إطفاء الكشاف |
+| **Triangle (△)** | `Z` | الخريطة |
+| **Square (□)** | `X` | الجري |
+| **L1 / R1** | `A` / `D` | خطوة جانبية يسار / يمين |
+| **L2 / R2** | `Right Shift` / `Left Shift` | استعراض / تصويب |
+| **D-Pad** | الأسهم | الحركة |
+| **Start** | `Enter` | إيقاف مؤقت |
+| **Select** | `Space` | الحقيبة |
 
-| Action | Key |
-|--------|-----|
-| Reload | R |
-| Quick save / load | F6 / F8 |
-| Change camera style | F9 |
-| Quick options overlay | F10 |
+### أزرار إضافية خاصة بالحاسب
+| الوظيفة | الزر |
+| :--- | :--- |
+| إعادة تعبئة السلاح (Reload) | `R` |
+| حفظ سريع / تحميل سريع | `F6` / `F8` |
+| تغيير زاوية الكاميرا | `F9` |
+| قائمة الخيارات السريعة | `F10` |
 
-**Quick options (F10)** is a live in-game overlay with four pages (Graphics, HUD & Audio, Cheats, and Debug), navigable with keyboard or mouse (left-click raises a value, right-click lowers it). The Cheats page includes **Free camera**: once enabled, fly with the mouse + `W/A/S/D`, `Space`/`C` for up/down, `Shift` fast, `Ctrl` slow. A controller works too (left stick to move, right stick to look, R1/L1 fast/slow, R2/L2 up/down).
+*(يمكنك إعادة تعيين جميع أزرار الكيبورد ويد التحكم بسهولة من خلال زر **Controls** داخل اللانشر).*
 
-**Rebinding:** open the launcher and click **Controls** to remap keys and controller buttons. Click a bind box, then press the key (Esc or Backspace clears it). The alternate cameras (third-person / OTS / first-person) use a separate control scheme; toggle **"Alt. Cam Controls"** in that window to edit it. Everything is also stored as plain `key_*` lines in `config.cfg`. (Reload is fixed to `R`.)
+---
 
-## Building
+## 🔨 طريقة البناء من الكود المصدري (للمطورين)
 
-### Prerequisites
-
-- **MSYS2 / MinGW64** (Windows). Install MSYS2 from https://www.msys2.org/, then from an **MSYS2 MinGW x64** shell install the toolchain:
-  ```
-  pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-SDL2 mingw-w64-x86_64-openal mingw-w64-x86_64-libjpeg-turbo
-  ```
-- **PsyCross**, pulled in as a git **submodule** (the SH-specific fork). From the repo root:
-  ```
-  git submodule update --init --recursive
-  ```
-  This populates `pc_port/PsyCross`. Do **not** clone PsyCross separately; the build uses the submodule.
-- **Game disc image**, a BIN dump of *Silent Hill* (USA) (SLUS-00707). Place it at:
-  ```
-  pc_port/build/gamedata/Silent Hill (USA).bin
-  ```
-
-### Build
-
-**Easiest (Windows): one command.**
-```
-pc_port\build.bat
-```
-Double-click `build.bat` for a menu (incremental / clean rebuild / build+run / nuke), or pass a mode: `build.bat` (incremental), `build.bat rebuild`, `build.bat configure`, `build.bat run`, `build.bat nuke`. It auto-configures (Ninja + map DLLs) on the first run and rebuilds incrementally afterward. If MSYS2 isn't at `C:\msys64`, set `MSYS2_ROOT` first (e.g. `set MSYS2_ROOT=D:\msys64 && pc_port\build.bat`).
-
-**Manual**, from an **MSYS2 MinGW64** shell (first time):
-```bash
-cd silent-hill-decomp/pc_port
-cmake -S . -B build -G Ninja -DSH_BUILD_MAP_DLLS=ON
-cmake --build build
-```
-Subsequent incremental builds: `cmake --build build`. `-DSH_BUILD_MAP_DLLS=ON` builds the maps as DLLs loaded at runtime; without it only the starting area is available.
-
-> **Note:** close the game before rebuilding. The linker cannot overwrite a running `SilentHillPC.exe` (`cannot open output file SilentHillPC.exe: Permission denied`). `build.bat` detects this and tells you.
-
-## Game Files / Modding
-
-The game's assets are packed into two archives (`SILENT.` and `HILL.`) on the disc; there is no real filesystem. They're indexed by a 2074-entry table with 6-bit-encoded names; the full enum with paths is in [`include/main/fileenum.h.USA.inc`](include/main/fileenum.h.USA.inc).
-
-| Ext | Type ID | Description |
-|-----|---------|-------------|
-| .TIM | 0 | Texture image |
-| .VAB | 1 | Sound bank |
-| .BIN | 2 | Overlay code / data |
-| .DMS | 3 | Cutscene data |
-| .ANM | 4 | Animation data |
-| .PLM | 5 | Map geometry |
-| .IPD | 6 | Map data |
-| .ILM | 7 | Character model |
-| .TMD | 8 | Mesh data |
-| .DAT | 9 | Demo data |
-| .KDT | 10 | Audio metadata (sequence / score) |
-| .CMP | 11 | Compressed data |
-
-**Extracting and replacing files, via launcher → Mod Manager:**
-
-- **Extract BIN…** unpacks a disc `.bin` into a loose asset tree (`<FOLDER>/<NAME>.<TYPE>`), the same result as the dev extract with no extra tools. Tick "Convert textures to PNG" to also dump every `.TIM` as a `.png`.
-- **TIM → PNG… / Bulk → PNG…** convert one texture or a whole folder to editable PNGs.
-- **Loose-file overrides.** Enable loose files (the checkbox on the window) and drop replacements in `gamedata/load/<FOLDER>/<NAME>` (e.g. `gamedata/load/SND/MAP000.VAB`); the game swaps them in at load. Replacements must be no larger than the original's size (oversized textures excepted).
-- **Character textures** are one index sheet drawn through several palettes, so a single PNG only recolors part of the model. Use **Reference…** to build one correct composite from a character's model + texture, edit it in any image editor, then **Rebuild…** to slice it back into the per-row PNGs the game loads.
-- **Texture packs.** Loose PNG overrides, `.dds` (BC7) support, per-palette/per-CLUT-row overrides, and DuckStation-style replacement packs, all managed from the Mod Manager.
-
-**Beyond textures:**
-
-- **Character models (ILM).** Export any character to OBJ, edit or fully re-rig in Blender, and import back; the toolchain supports complete model replacement (a high-poly pipeline with automatic seam welding). See [`Model_Modding_Guide.md`](pc_port/docs/Model_Modding_Guide.md).
-- **Inventory item models (glTF/GLB).** Drop modern glTF models in to replace the rotating inventory/examine items, keyed by item ID. See [`Modern_Item_GLTF_Modding_Guide.md`](pc_port/docs/Modern_Item_GLTF_Modding_Guide.md).
-- **Audio (VAB).** Extract every SFX/instrument sample out of the game's VAB sound banks (vgmstream workflow documented in the guide), modify, and repack; loose-file VAB overrides load without touching the disc.
-- **FMVs.** Drop `.avi` files in as movie overrides; no disc rebuild needed.
-- **Disc rebuild.** For changes that outgrow the loose-file size limits, the documented two-stage extract/rebuild produces a modified disc image with **no size ceiling**.
-
-Full workflows: [`Modding_And_Extraction_Guide.md`](pc_port/docs/Modding_And_Extraction_Guide.md).
-
-## Console Commands
-
-An in-game console for cheats, warps, and live tuning. Enable it with `allow_debug_controls = 1` in `config.cfg`, then hold **`` ` ``** (backtick / tilde) in-game to open it (the game pauses while it's open). Type a command and press **Enter**; commands are case-insensitive. Type **`help`** or **`debug`** to list everything live.
-
-| Command | What it does |
-|---------|--------------|
-| `give <item>` | Give a weapon / ammo / health: `give allweapons`, `give ammo`, `give health` (`help give` lists items) |
-| `kill` / `killall` | Kill Harry / kill nearby enemies |
-| `spawn <name> [state]` | Spawn a monster in front of Harry (`spawn list`) |
-| `unlimited [0\|1]` | Raise the concurrent-enemy cap |
-| `map <name>` | Set the **New-Game start map**: loads on the next New Game, does not warp mid-session |
-| `noclip` / `obst` / `god` | Walk through walls / round-obstacle collision / invincibility |
-| `getflags` · `setflag <n> <0\|1>` · `setending <bad\|bad+\|good\|good+>` | Inspect / force story flags and the ending (set before the ending) |
-| `pgxp [0\|1]` | Toggle PGXP perspective correction |
-| `cull` | Toggle world visibility culling (draw everything) |
-| `shadowres <n>` | Flashlight shadow-map resolution (up to 8192) |
-| `flmode <0-3>` · `shadows [0\|1]` · `fl`/`wl [color]` | Flashlight mode / shadows / flashlight & world-light tint |
-| `fov` · `tpsfov` · `tpsaimzoom` · `camcollide` | First-person / third-person FOV and camera feel |
-| `audioout <stereo\|quad\|51\|71\|hrtf>` · `xavol <0-100>` · `adsr [0\|1]` | Speaker layout / FMV volume / SPU envelopes |
-| `fmv [name]` | Play an intro / ending movie (bare `fmv` lists them) |
-| `quit` | Exit the game |
-
-Many values are also **live-tuning knobs**; run one with no argument to read the current value: `vfov`, `hfov`, `vshift`, `cutshift`, `vcropanchor`, `par`, `drawdist`, `fogstr`, `pgxpedge`, `pgxpnearz`, `shadowbias`, `postint`, `tmint`, and the inventory `inv*` offsets. `debug 2` documents them.
-
-## Debug Controls
-
-Also requires `allow_debug_controls = 1`. Debug events echo to the per-run **`SilentHill_<timestamp>.log`**.
-
-**Cheats & tools (top-row keys):**
-
-| Key | Action |
-|-----|--------|
-| `Esc` | Warm reset to the title screen |
-| `0` | Noclip toggle |
-| `4` / `5` | New-Game start-map prev / next |
-| `6` | Kill nearby enemies |
-| `7` | Invincibility toggle |
-| `8` | +15 handgun bullets |
-| `9` | No-target toggle (enemies ignore Harry) |
-| `-` / `=` | Give Hunting Rifle / Shotgun (+ shells) |
-| `'` | Collision visualizer panel |
-| `K` · `,` `.` | Keyframe inspector / scrub |
-
-**Graphics hotkeys** (no dev controls needed):
-
-| Key | Action |
-|-----|--------|
-| `F1` | Toggle PGXP |
-| `F2` | Cycle post-process effect |
-| `F3` | Cycle tone mapping |
-| `F4` | Cycle flashlight mode |
-| `[` / `]` | Lower / raise the selected effect's intensity |
-| `\` | Choose which effect `[` / `]` adjusts |
-
-**Free camera** (also toggleable from the F10 quick-options Cheats page, no dev controls needed there):
-
-| Key | Action |
-|-----|--------|
-| Num `*` | Free camera on / off (Harry stays put; his input is ignored) |
-| Mouse | Look (follows your mouse sensitivity / invert settings) |
-| `W/A/S/D` | Fly forward / left / back / right along the view |
-| `Space` / `C` | Move up / down |
-| `Shift` / `Ctrl` | Fast / slow |
-| Num `3` | Reset cam nudge / in-game rescue teleport |
-| Num `.` | Log Harry's position |
-
-A controller drives the free camera too: left stick moves, right stick looks, R1/L1 go fast/slow, R2/L2 move up/down.
-
-With the free camera **off**, the numpad keys nudge the normal game camera, a live camera-tuning aid. (Camera *styles*, meaning third-person, OTS, and first-person, are cycled with the Change Camera key, `F9` by default. The **F10 quick-options overlay** exposes most of the graphics/debug toggles below without memorizing keys.)
-
-## Licensing at a glance
-
-**The PC port is GPL-3.0.** That covers `pc_port/` (engine, launcher, tooling, docs) and every `SH_PC_PORT` addition to the decompiled sources. Files carrying an `SPDX-License-Identifier: GPL-3.0-or-later` header are the ones being licensed here.
-
-**The decompilation is not licensed by this project.** `src/`, `include/`, `configs/`, `asm/`, `lib/` and `rom/` are a decompilation of Konami's Silent Hill, and remain the work of the [silent-hill-decomp](https://github.com/shdecompilations/silent-hill-decomp) contributors. This project asserts no copyright over that material and grants no rights to it. The GitHub license badge above refers to the port only.
-
-**No game data is included.** Silent Hill is © Konami. A legally obtained copy of the PlayStation disc is required to play; nothing from it ships here or in any release.
-
-Full breakdown, including bundled third-party components: [COPYRIGHT.md](COPYRIGHT.md).
-
-## Support
-
-I'm on Discord as **@KushAstronaut**, and the project has a Discord server: https://discord.gg/JWuNzVsQbr
-
-This is a 100% free project funded from my own pocket. If you'd like to support me, it is greatly appreciated, and you can do so on Ko-fi:<br/> [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/F1F3K8V3B)
-
-Silent Hill is © Konami and this does not contain any game assets. You must provide a legally obtained dump of Silent Hill for PSX to use.
+1. ثبّت بيئة **MSYS2 / MinGW64** ثم ثبّت الحزم المطلوبة من طرفية `MSYS2 MinGW x64`:
+   ```bash
+   pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-SDL2 mingw-w64-x86_64-openal mingw-w64-x86_64-libjpeg-turbo
